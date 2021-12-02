@@ -2,15 +2,11 @@ package gol
 
 import (
 	"fmt"
-	//"flag"
-	//"fmt"
-	//"net/rpc"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	// "os"
 	"uk.ac.bris.cs/gameoflife/util"
 )
 
@@ -61,14 +57,20 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 				sendWorld(p, c, world, turn)
 				finished = true
 			case 'p':
-				c.events <- StateChange{CompletedTurns: turn, NewState: Paused}
+				c.events <- StateChange{
+					CompletedTurns: turn,
+					NewState:       Paused,
+				}
 				fmt.Printf("Current turn: %d\n", turn)
 				ticker.Stop()
 				for {
 					input = <-keyPresses
 					if input == 'p' {
 						fmt.Println("Continuing")
-						c.events <- StateChange{CompletedTurns: turn, NewState: Executing}
+						c.events <- StateChange{
+							CompletedTurns: turn,
+							NewState:       Executing,
+						}
 						ticker = time.NewTicker(2 * time.Second)
 						break
 					}
@@ -109,13 +111,13 @@ func distributor(p Params, c distributorChannels, keyPresses <-chan rune) {
 	close(c.events)
 }
 
-func buildWorld(p Params, c distributorChannels) [][]byte {
+func buildWorld(p Params, c distributorChannels) [][]uint8 {
 	c.ioCommand <- ioInput
 	c.ioFilename <- strings.Join([]string{strconv.Itoa(p.ImageWidth), strconv.Itoa(p.ImageHeight)}, "x")
 
-	world := make([][]byte, p.ImageHeight)
+	world := make([][]uint8, p.ImageHeight)
 	for y := range world {
-		world[y] = make([]byte, p.ImageWidth)
+		world[y] = make([]uint8, p.ImageWidth)
 		for x := range world[y] {
 			world[y][x] = <-c.ioInput
 			if world[y][x] == 255 {
@@ -130,7 +132,7 @@ func buildWorld(p Params, c distributorChannels) [][]byte {
 	return world
 }
 
-func sendWorld(p Params, c distributorChannels, world [][]byte, turn int) {
+func sendWorld(p Params, c distributorChannels, world [][]uint8, turn int) {
 	c.ioCommand <- ioOutput
 	c.ioFilename <- strings.Join([]string{strconv.Itoa(p.ImageWidth), strconv.Itoa(p.ImageHeight), strconv.Itoa(turn)}, "x")
 	for y := range world {
@@ -163,10 +165,10 @@ func countNeighbours(p Params, x int, y int, world [][]uint8) int {
 	return count
 }
 
-func calculateNextState(p Params, world [][]byte, turn int, c distributorChannels) [][]byte {
-	tempWorld := make([][]byte, len(world))
+func calculateNextState(p Params, world [][]uint8, turn int, c distributorChannels) [][]uint8 {
+	tempWorld := make([][]uint8, len(world))
 	for i := range world {
-		tempWorld[i] = make([]byte, len(world[i]))
+		tempWorld[i] = make([]uint8, len(world[i]))
 		copy(tempWorld[i], world[i])
 	}
 
@@ -193,7 +195,7 @@ func calculateNextState(p Params, world [][]byte, turn int, c distributorChannel
 	return tempWorld
 }
 
-func worker(wg *sync.WaitGroup, start int, end int, p Params, newWorld [][]byte, world [][]byte, turn int, c distributorChannels) {
+func worker(wg *sync.WaitGroup, start int, end int, p Params, newWorld [][]uint8, world [][]uint8, turn int, c distributorChannels) {
 	defer wg.Done()
 
 	for y := start; y < end; y++ {
@@ -217,7 +219,7 @@ func worker(wg *sync.WaitGroup, start int, end int, p Params, newWorld [][]byte,
 	}
 }
 
-func calculateAliveCells(world [][]byte) []util.Cell {
+func calculateAliveCells(world [][]uint8) []util.Cell {
 	var cells []util.Cell
 	for y := range world {
 		for x := range world[y] {
